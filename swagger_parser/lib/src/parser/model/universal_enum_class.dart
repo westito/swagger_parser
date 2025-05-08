@@ -8,13 +8,10 @@ final class UniversalEnumClass extends UniversalDataClass {
     required super.name,
     required this.type,
     required this.items,
-    final String? originalName,
+    super.originalName,
     this.defaultValue,
     super.description,
-  }) : originalName = originalName ?? name;
-
-  /// Enum original name (without suffix number for duplicates)
-  final String originalName;
+  });
 
   /// Enum type
   final String type;

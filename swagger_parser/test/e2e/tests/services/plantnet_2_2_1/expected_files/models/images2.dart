@@ -2,4 +2,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, unused_import
 
-typedef Organs = List<String>;
+import 'image.dart';
+
+typedef Images2 = List<Image>;

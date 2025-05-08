@@ -15,7 +15,7 @@ import '../models/model1.dart';
 import '../models/model3.dart';
 import '../models/model6.dart';
 import '../models/model8.dart';
-import '../models/organs.dart';
+import '../models/organs2.dart';
 import '../models/project.dart';
 import '../models/projects_list.dart';
 import '../models/species.dart';
@@ -131,7 +131,7 @@ abstract class MyapiClient {
     @Query('no-reject') bool noReject = false,
     @Query('nb-results') int nbResults = 10,
     @Query('lang') Lang lang = Lang.en,
-    @Query('organs') List<Organs>? organs,
+    @Query('organs') List<Organs2>? organs,
     @Query('type') Type? type,
     @Query('api-key') String? apiKey,
     @Query('authenix-access-token') String? authenixAccessToken,
@@ -168,7 +168,7 @@ abstract class MyapiClient {
     @Query('type') Type? type,
     @Query('api-key') String? apiKey,
     @Query('authenix-access-token') String? authenixAccessToken,
-    @Part(name: 'organs') List<Organs>? organs,
+    @Part(name: 'organs') List<Organs2>? organs,
     @Query('include-related-images') bool includeRelatedImages = false,
     @Query('no-reject') bool noReject = false,
     @Query('nb-results') int nbResults = 10,

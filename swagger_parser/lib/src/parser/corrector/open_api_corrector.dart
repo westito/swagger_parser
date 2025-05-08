@@ -33,16 +33,59 @@ class OpenApiCorrector {
     final correctModelMap = <String, String>{};
 
     if (models != null) {
+      // First, collect all case-insensitive duplicates
+      final caseInsensitiveGroups = <String, List<String>>{};
+
+      // Group model keys by their lowercase version
+      for (final type in models.keys) {
+        final lowerCaseType = type.toLowerCase();
+        caseInsensitiveGroups.putIfAbsent(lowerCaseType, () => []).add(type);
+      }
+
+      // Create a mapping for renaming duplicates
+      final duplicateRenameMap = <String, String>{};
+
+      // For each group with more than one entry, create rename mappings
+      for (final group in caseInsensitiveGroups.entries) {
+        if (group.value.length > 1) {
+          // This is a case-insensitive duplicate group
+          for (var i = 0; i < group.value.length; i++) {
+            final type = group.value[i];
+            var correctType = type;
+
+            // Apply replacement rules
+            for (final rule in config.replacementRules) {
+              correctType = rule.apply(correctType)!;
+            }
+
+            // Format to PascalCase
+            correctType = correctType.toPascal;
+
+            // Add numeric suffix to ALL entries in the duplicate group (including the first one)
+            duplicateRenameMap[type] = '$correctType${i + 1}';
+          }
+        }
+      }
+
       // Apply replacement rules to all class names and format to PascalCase
       for (final type in models.keys) {
         var correctType = type;
 
+        // If this is part of a duplicate group, use the pre-computed name
+        if (duplicateRenameMap.containsKey(type)) {
+          correctType = duplicateRenameMap[type]!;
+        }
+
+        // Apply normal processing for non-duplicates
         for (final rule in config.replacementRules) {
           correctType = rule.apply(correctType)!;
         }
 
         correctType = correctType.toPascal;
 
+        // Update the correctModelMap if:
+        // 1. The type has changed due to case normalization or other rules, or
+        // 2. It's a duplicate that got a numeric postfix
         if (correctType != type) {
           String escape(String input) => input.replaceAllMapped(
                 RegExp(r'[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]'),

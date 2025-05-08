@@ -12,10 +12,15 @@ part 'universal_enum_class.dart';
 @immutable
 sealed class UniversalDataClass {
   /// Constructor for [UniversalDataClass]
-  const UniversalDataClass({required this.name, this.description});
+  const UniversalDataClass(
+      {required this.name, String? originalName, this.description})
+      : originalName = originalName ?? name;
 
   /// Name of the class
   final String name;
+
+  /// Original name (without suffix number for duplicates)
+  final String originalName;
 
   /// Description of the class
   final String? description;

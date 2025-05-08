@@ -33,8 +33,10 @@ class GenProcessor {
 
     final generatorConfig = config.toGeneratorConfig();
     final info = parser.openApiInfo;
+
+    parser.parseComponents();
     final restClients = parser.parseRestClients();
-    final dataClasses = parser.parseDataClasses();
+    final dataClasses = parser.getDataClasses();
 
     void resolveTypedefImports(Set<String> imports) {
       final originalImports = imports.toList();
@@ -52,7 +54,8 @@ class GenProcessor {
 
     // Correct imports of typedefs in data classes
     for (final dataClass in dataClasses) {
-      if (dataClass is UniversalComponentClass) {
+      if (dataClass is UniversalComponentClass &&
+          dataClass.imports.isNotEmpty) {
         resolveTypedefImports(dataClass.imports);
       }
     }
@@ -87,8 +90,10 @@ class GenProcessor {
 
     final generatorConfig = config.toGeneratorConfig();
     final info = parser.openApiInfo;
+    parser.parseComponents();
     final restClients = parser.parseRestClients();
-    final dataClasses = parser.parseDataClasses();
+    final dataClasses = parser.getDataClasses();
+
     final generator = Generator(
       generatorConfig,
       info: info,

@@ -4,8 +4,7 @@
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import 'image.dart';
-import 'images.dart';
+import 'images1.dart';
 import 'organs.dart';
 
 part 'query.freezed.dart';
@@ -15,7 +14,7 @@ part 'query.g.dart';
 class Query with _$Query {
   const factory Query({
     String? project,
-    Images? images,
+    Images1? images,
     Organs? organs,
     bool? includeRelatedImages,
     bool? noReject,

@@ -2,6 +2,4 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, unused_import
 
-import 'image.dart';
-
-typedef Images = List<Image>;
+typedef Images1 = List<String>;

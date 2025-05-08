@@ -11,7 +11,11 @@ part 'object4.g.dart';
 class Object4 with _$Object4 {
   const factory Object4({
     required String? p1,
-    required List<String?>? p2,
+    @JsonKey(name: 'p2_null') required List<String>? p2Null,
+    @JsonKey(name: 'p2_null_all') required List<String?>? p2NullAll,
+    @JsonKey(name: 'nested_collections')
+    required List<List<Map<String, List<Map<String, int>?>>>?>
+        nestedCollections,
   }) = _Object4;
 
   factory Object4.fromJson(Map<String, Object?> json) =>

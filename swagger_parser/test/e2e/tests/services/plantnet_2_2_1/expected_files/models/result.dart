@@ -6,7 +6,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'gbif.dart';
 import 'image.dart';
-import 'images.dart';
+import 'images2.dart';
 import 'iucn.dart';
 import 'model4.dart';
 import 'powo.dart';
@@ -19,7 +19,7 @@ class Result with _$Result {
   const factory Result({
     num? score,
     Model4? species,
-    Images? images,
+    Images2? images,
     Gbif? gbif,
     Powo? powo,
     Iucn? iucn,

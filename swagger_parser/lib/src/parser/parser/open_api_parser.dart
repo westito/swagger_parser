@@ -1,5 +1,4 @@
 import 'dart:collection';
-import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
@@ -40,7 +39,6 @@ class OpenApiParser {
   final _enumClasses = <UniversalEnumClass>{};
   final _usedNamesCount = <String, int>{};
   final _skipDataClasses = <String>[];
-  final _objectNamesCount = <String, int>{};
 
   static const _additionalPropertiesConst = 'additionalProperties';
   static const _allOfConst = 'allOf';
@@ -90,7 +88,7 @@ class OpenApiParser {
   static const _versionConst = 'version';
   static const _xNullableConst = 'x-nullable';
 
-  UniversalEnumClass _getUniqueEnumClass({
+  UniversalEnumClass _addUniqueEnumClass({
     required final String name,
     required final Set<UniversalEnumItem> items,
     required final String type,
@@ -108,16 +106,18 @@ class OpenApiParser {
       return enumClass;
     }
 
+    final pascalName = name.toPascal;
+
     String uniqueName;
-    if (_usedNamesCount.containsKey(name)) {
-      _usedNamesCount[name] = _usedNamesCount[name]! + 1;
-      uniqueName = '$name${_usedNamesCount[name]}';
+    if (_usedNamesCount.containsKey(pascalName)) {
+      _usedNamesCount[pascalName] = _usedNamesCount[pascalName]! + 1;
+      uniqueName = '$pascalName${_usedNamesCount[pascalName]}';
     } else {
-      _usedNamesCount[name] = 1;
-      uniqueName = name;
+      _usedNamesCount[pascalName] = 1;
+      uniqueName = pascalName;
     }
 
-    return UniversalEnumClass(
+    final newEnumClass = UniversalEnumClass(
       originalName: name,
       name: uniqueName.toPascal,
       type: type,
@@ -125,6 +125,57 @@ class OpenApiParser {
       defaultValue: defaultValue,
       description: description,
     );
+
+    _enumClasses.add(newEnumClass);
+    return newEnumClass;
+  }
+
+  UniversalComponentClass _addUniqueComponentClass({
+    required final String name,
+    required final Set<String> imports,
+    required final List<UniversalType> parameters,
+    final ({List<String> refs, List<UniversalType> properties})? allOf,
+    final bool typeDef = false,
+    final Discriminator? discriminator,
+    final DiscriminatorValue? discriminatorValue,
+    final String? description,
+  }) {
+    // Search _objectClasses for an object with the same name and properties
+    final objectClass = _objectClasses.firstWhereOrNull(
+      (e) =>
+          e.originalName == name &&
+          const DeepCollectionEquality().equals(e.parameters, parameters),
+    );
+
+    if (objectClass != null) {
+      return objectClass;
+    }
+
+    final pascalName = name.toPascal;
+
+    String uniqueName;
+    if (_usedNamesCount.containsKey(pascalName)) {
+      _usedNamesCount[pascalName] = _usedNamesCount[pascalName]! + 1;
+      uniqueName = '$pascalName${_usedNamesCount[pascalName]}';
+    } else {
+      _usedNamesCount[pascalName] = 1;
+      uniqueName = pascalName;
+    }
+
+    final newObjectClass = UniversalComponentClass(
+      name: uniqueName,
+      originalName: name,
+      imports: imports,
+      parameters: parameters,
+      allOf: allOf,
+      typeDef: typeDef,
+      discriminator: discriminator,
+      discriminatorValue: discriminatorValue,
+      description: description,
+    );
+
+    _objectClasses.add(newObjectClass);
+    return newObjectClass;
   }
 
   /// Parse OpenApi parameters into [OpenApiInfo]
@@ -664,6 +715,7 @@ class OpenApiParser {
         imports.clear();
       });
     });
+
     return restClients;
   }
 
@@ -755,21 +807,20 @@ class OpenApiParser {
 
   /// Parses data classes from `components` of definition file
   /// and return list of  [UniversalDataClass]
-  List<UniversalDataClass> parseDataClasses() {
-    final dataClasses = <UniversalDataClass>[];
+  void parseComponents() {
     late final Map<String, dynamic> entities;
     if (_apiInfo.schemaVersion == OAS.v3_1 ||
         _apiInfo.schemaVersion == OAS.v3) {
       if (!_definitionFileContent.containsKey(_componentsConst) ||
           !(_definitionFileContent[_componentsConst] as Map<String, dynamic>)
               .containsKey(_schemasConst)) {
-        return [...dataClasses, ..._objectClasses, ..._enumClasses];
+        return;
       }
       entities = (_definitionFileContent[_componentsConst]
           as Map<String, dynamic>)[_schemasConst] as Map<String, dynamic>;
     } else if (_apiInfo.schemaVersion == OAS.v2) {
       if (!_definitionFileContent.containsKey(_definitionsConst)) {
-        return [...dataClasses, ..._objectClasses, ..._enumClasses];
+        return;
       }
       entities =
           _definitionFileContent[_definitionsConst] as Map<String, dynamic>;
@@ -808,14 +859,12 @@ class OpenApiParser {
         }
         final type = value[_typeConst].toString();
 
-        dataClasses.add(
-          _getUniqueEnumClass(
-            name: key,
-            items: items,
-            type: type,
-            defaultValue: value[_defaultConst]?.toString(),
-            description: value[_descriptionConst]?.toString(),
-          ),
+        _addUniqueEnumClass(
+          name: key,
+          items: items,
+          type: type,
+          defaultValue: value[_defaultConst]?.toString(),
+          description: value[_descriptionConst]?.toString(),
         );
         return;
       } else if (value.containsKey(_typeConst) ||
@@ -830,14 +879,12 @@ class OpenApiParser {
         if (typeWithImport.import != null) {
           imports.add(typeWithImport.import!);
         }
-        dataClasses.add(
-          UniversalComponentClass(
-            name: key,
-            imports: imports,
-            parameters: parameters,
-            typeDef: true,
-            description: value[_descriptionConst]?.toString(),
-          ),
+        _addUniqueComponentClass(
+          name: key,
+          imports: imports,
+          parameters: parameters,
+          typeDef: true,
+          description: value[_descriptionConst]?.toString(),
         );
         return;
       }
@@ -860,22 +907,20 @@ class OpenApiParser {
           refs.isNotEmpty ? (refs: refs, properties: parameters) : null;
 
       final discriminator = _parseDiscriminatorInfo(value);
-      dataClasses.add(
-        UniversalComponentClass(
-          name: key,
-          imports: imports,
-          parameters: allOf != null ? [] : parameters,
-          allOf: allOf,
-          description: value[_descriptionConst]?.toString(),
-          discriminator: discriminator,
-        ),
+      _addUniqueComponentClass(
+        name: key,
+        imports: imports,
+        parameters: allOf != null ? [] : parameters,
+        allOf: allOf,
+        description: value[_descriptionConst]?.toString(),
+        discriminator: discriminator,
       );
     });
 
-    dataClasses.addAll(_objectClasses);
-    _objectClasses.clear();
-    dataClasses.addAll(_enumClasses);
-    _enumClasses.clear();
+    final dataClasses = [
+      ..._objectClasses,
+      ..._enumClasses,
+    ];
 
     // check for `allOf`
     final allOfClasses = dataClasses.where(
@@ -941,7 +986,19 @@ class OpenApiParser {
       }
     }
 
-    return dataClasses;
+    _objectClasses.clear();
+    _enumClasses.clear();
+
+    _objectClasses.addAll(dataClasses.whereType<UniversalComponentClass>());
+    _enumClasses.addAll(dataClasses.whereType<UniversalEnumClass>());
+  }
+
+  List<UniversalDataClass> getDataClasses() {
+    final classes = [
+      ..._objectClasses,
+      ..._enumClasses,
+    ];
+    return classes;
   }
 
   /// Get tag for name
@@ -1080,15 +1137,13 @@ class OpenApiParser {
         items = protectEnumItemsNames(values);
       }
 
-      final enumClass = _getUniqueEnumClass(
+      final enumClass = _addUniqueEnumClass(
         name: newName,
         items: items,
         type: map[_typeConst].toString(),
         defaultValue: protectDefaultValue(map[_defaultConst], isEnum: true),
         description: description,
       );
-
-      _enumClasses.add(enumClass);
 
       final type = map[_typeConst];
       final nullable = type is List && type.any((e) => e.toString() == 'null');
@@ -1138,24 +1193,11 @@ class OpenApiParser {
         type = replacementRule.apply(type)!;
       }
 
-      // Check for duplicate type names
-      if (_objectNamesCount.containsKey(type)) {
-        _objectNamesCount[type] = _objectNamesCount[type]! + 1;
-        type = '$type${_objectNamesCount[type]}';
-        stdout.writeln('Found duplicate object name: $type');
-      } else {
-        _objectNamesCount[type] = 1;
-      }
-
-      if (_objectClasses.where((oc) => oc.name == type).isEmpty) {
-        _objectClasses.add(
-          UniversalComponentClass(
-            name: type,
-            imports: imports,
-            parameters: parameters,
-          ),
-        );
-      }
+      _addUniqueComponentClass(
+        name: type,
+        imports: imports,
+        parameters: parameters,
+      );
 
       return (
         type: UniversalType(
@@ -1227,19 +1269,17 @@ class OpenApiParser {
           );
 
           // Create a sealed class to represent the discriminated union
-          _objectClasses.add(
-            UniversalComponentClass(
-              name: newName!.toPascal,
-              imports: SplayTreeSet<String>(),
-              parameters: [
-                UniversalType(
-                  type: 'String',
-                  name: discriminator?.propertyName,
-                  isRequired: true,
-                ),
-              ],
-              discriminator: discriminator,
-            ),
+          _addUniqueComponentClass(
+            name: newName!.toPascal,
+            imports: SplayTreeSet<String>(),
+            parameters: [
+              UniversalType(
+                type: 'String',
+                name: discriminator?.propertyName,
+                isRequired: true,
+              ),
+            ],
+            discriminator: discriminator,
           );
 
           ofType = UniversalType(
@@ -1353,19 +1393,17 @@ class OpenApiParser {
               );
 
               // Create a class to represent the allOf composition
-              _objectClasses.add(
-                UniversalComponentClass(
-                  name: newName!.toPascal,
-                  imports: imports,
-                  // This is a workaround as the linter is rightfully complaining
-                  // because we give a litteral that should be a const but can't
-                  // because it is modified later when the data classes are created
-                  // This should be addressed in the future.
-                  // ignore: prefer_const_literals_to_create_immutables
-                  parameters: [],
-                  allOf: (refs: refs, properties: parameters),
-                  description: description,
-                ),
+              _addUniqueComponentClass(
+                name: newName!.toPascal,
+                imports: imports,
+                // This is a workaround as the linter is rightfully complaining
+                // because we give a literal that should be a const but can't
+                // because it is modified later when the data classes are created
+                // This should be addressed in the future.
+                // ignore: prefer_const_literals_to_create_immutables
+                parameters: [],
+                allOf: (refs: refs, properties: parameters),
+                description: description,
               );
 
               ofType = UniversalType(

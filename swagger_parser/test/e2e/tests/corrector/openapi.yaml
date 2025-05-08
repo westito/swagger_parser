@@ -111,4 +111,33 @@ components:
     data<Att>V14:
       type: object
 
-    
+    # Case-insensitive duplicate test cases
+    Images:
+      type: object
+      properties:
+        url:
+          type: string
+
+    images:
+      type: object
+      properties:
+        path:
+          type: string
+
+    USER:
+      type: object
+      properties:
+        id:
+          type: integer
+
+    User:
+      type: object
+      properties:
+        name:
+          type: string
+
+    user:
+      type: object
+      properties:
+        email:
+          type: string
